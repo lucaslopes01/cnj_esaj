@@ -8,8 +8,9 @@ mongo = Mongo(config('MONGO_USR'), config('MONGO_PWD'), config('MONGO_HOST'), co
 mongo_2 = Mongo(config('MONGO_USR'), config('MONGO_PWD'), config('MONGO_HOST'), config('MONGO_PORT'), config('MONGO_DB_ESAJ'), ambiente='DEV')
 mongo.getcoll('processos_esaj_cnj')
 mongo_2.getcoll('esaj_principal')
+ultimo_process= list(mongo._return_sort({},'_id'))[0]
 # from utils.rabbitmq import RabbitMQ
-data_base = datetime.strptime("29/04/2025", "%d/%m/%Y")
+data_base = datetime.strptime(ultimo_process['data_cnj'], "%d/%m/%Y")
 hoje = datetime.now()
 def valida_resposta(url):
     headers = {
