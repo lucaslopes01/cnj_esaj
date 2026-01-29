@@ -65,7 +65,7 @@ while True:
         aux = 1
         data_base_string = data_base.strftime("%d/%m/%Y")
         while True:
-            url = f"https://comunicaapi.pje.jus.br/api/v1/comunicacao?pagina={aux}&itensPorPagina=5&siglaTribunal=TJSP&dataDisponibilizacaoInicio={data_base.year}-{data_base.month}-{data_base.day}&dataDisponibilizacaoFim={data_base.year}-{data_base.month}-{data_base.day}"
+            url = f"https://comunicaapi.pje.jus.br/api/v1/comunicacao?pagina={aux}&itensPorPagina=100&siglaTribunal=TJSP&dataDisponibilizacaoInicio={data_base.year}-{data_base.month}-{data_base.day}&dataDisponibilizacaoFim={data_base.year}-{data_base.month}-{data_base.day}"
             # url = f"https://comunicaapi.pje.jus.br/api/v1/comunicacao?pagina={aux}&itensPorPagina=100&texto=UNIAO+FEDERAL&siglaTribunal=TRF3&dataDisponibilizacaoInicio={data_base.year}-{data_base.month}-{data_base.day}&dataDisponibilizacaoFim={data_base.year}-{data_base.month}-{data_base.day}"
 
             response =valida_resposta(url)
