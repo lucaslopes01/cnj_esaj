@@ -4,14 +4,7 @@ import json
 import time
 from utils.class_mongo import Mongo
 from decouple import config
-mongo = Mongo(config('MONGO_USR'), config('MONGO_PWD'), config('MONGO_HOST'), config('MONGO_PORT'), config('MONGO_DB_ESAJ'), ambiente='DEV')
-mongo_2 = Mongo(config('MONGO_USR'), config('MONGO_PWD'), config('MONGO_HOST'), config('MONGO_PORT'), config('MONGO_DB_ESAJ'), ambiente='DEV')
-mongo.getcoll('processos_esaj_cnj')
-mongo_2.getcoll('esaj_principal')
-ultimo_process= list(mongo._return_sort({},'_id'))[0]
-# from utils.rabbitmq import RabbitMQ
-data_base = datetime.strptime(ultimo_process['data_cnj'], "%d/%m/%Y")
-hoje = datetime.now()
+
 def valida_resposta(url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0',
@@ -56,40 +49,55 @@ def valida_resposta(url):
             raise  # estoura o erro na última tentativa
 
     return ultima_resposta
+def rodar():
+    mongo = Mongo(config('MONGO_USR'), config('MONGO_PWD'), config('MONGO_HOST'), config('MONGO_PORT'), config('MONGO_DB_ESAJ'), ambiente='DEV')
+    mongo_2 = Mongo(config('MONGO_USR'), config('MONGO_PWD'), config('MONGO_HOST'), config('MONGO_PORT'), config('MONGO_DB_ESAJ'), ambiente='DEV')
+    mongo.getcoll('processos_esaj_cnj')
+    mongo_2.getcoll('esaj_principal')
+    ultimo_process= list(mongo._return_sort({},'_id'))[0]
+    # from utils.rabbitmq import RabbitMQ
+    data_base = datetime.strptime(ultimo_process['data_cnj'], "%d/%m/%Y")
+    hoje = datetime.now()
+    while True:
+            time.sleep(1)
+            dia = str(data_base.day)
+            mes = str(data_base.month)
+            ano = str(data_base.year)
+            aux = 1
+            data_base_string = data_base.strftime("%d/%m/%Y")
+            while True:
+                url = f"https://comunicaapi.pje.jus.br/api/v1/comunicacao?pagina={aux}&itensPorPagina=100&siglaTribunal=TJSP&dataDisponibilizacaoInicio={data_base.year}-{data_base.month}-{data_base.day}&dataDisponibilizacaoFim={data_base.year}-{data_base.month}-{data_base.day}"
+                # url = f"https://comunicaapi.pje.jus.br/api/v1/comunicacao?pagina={aux}&itensPorPagina=100&texto=UNIAO+FEDERAL&siglaTribunal=TRF3&dataDisponibilizacaoInicio={data_base.year}-{data_base.month}-{data_base.day}&dataDisponibilizacaoFim={data_base.year}-{data_base.month}-{data_base.day}"
 
-while True:
-        time.sleep(1)
-        dia = str(data_base.day)
-        mes = str(data_base.month)
-        ano = str(data_base.year)
-        aux = 1
-        data_base_string = data_base.strftime("%d/%m/%Y")
-        while True:
-            url = f"https://comunicaapi.pje.jus.br/api/v1/comunicacao?pagina={aux}&itensPorPagina=100&siglaTribunal=TJSP&dataDisponibilizacaoInicio={data_base.year}-{data_base.month}-{data_base.day}&dataDisponibilizacaoFim={data_base.year}-{data_base.month}-{data_base.day}"
-            # url = f"https://comunicaapi.pje.jus.br/api/v1/comunicacao?pagina={aux}&itensPorPagina=100&texto=UNIAO+FEDERAL&siglaTribunal=TRF3&dataDisponibilizacaoInicio={data_base.year}-{data_base.month}-{data_base.day}&dataDisponibilizacaoFim={data_base.year}-{data_base.month}-{data_base.day}"
-
-            response =valida_resposta(url)
-            # valida_resposta = re
-            resposta =  json.loads(response.text)
-            if not resposta['items'] :
+                response =valida_resposta(url)
+                # valida_resposta = re
+                resposta =  json.loads(response.text)
+                if not resposta['items'] :
+                    break
+                else:
+                    for i in resposta['items']:
+                        if not i['nomeOrgao'].find("JEF")>-1:
+                            if i['nomeClasse'].lower().find('cumprimento de sentença')>-1:
+                                processo = list(mongo._return_query({"processo":i["numeroprocessocommascara"]}))
+                                processo_2 = list(mongo_2._return_query({"processo":i["numeroprocessocommascara"]}))
+                                if not processo and not processo_2:
+                                    mongo._add_one({"processo":i["numeroprocessocommascara"], "data_cnj":data_base_string,"status":"aguardando", "pag":aux})
+                                    print(i["numeroprocessocommascara"], 'inserido')
+                    if aux == 2000:
+                        break
+                    aux +=1
+                
+            if data_base > hoje:
                 break
             else:
-                for i in resposta['items']:
-                     if not i['nomeOrgao'].find("JEF")>-1:
-                        if i['nomeClasse'].lower().find('cumprimento de sentença')>-1:
-                            processo = list(mongo._return_query({"processo":i["numeroprocessocommascara"]}))
-                            processo_2 = list(mongo_2._return_query({"processo":i["numeroprocessocommascara"]}))
-                            if not processo and not processo_2:
-                                mongo._add_one({"processo":i["numeroprocessocommascara"], "data_cnj":data_base_string,"status":"aguardando", "pag":aux})
-                                print(i["numeroprocessocommascara"], 'inserido')
-                if aux == 2000:
-                    break
-                aux +=1
-             
-        if data_base > hoje:
-            break
-        else:
-            data_base = data_base+ timedelta(days=1)
+                data_base = data_base+ timedelta(days=1)
 
-        
-        
+max_tentativas = 20
+tentativa =1
+for i in range(tentativa, max_tentativas+1):
+    print(i,"tentativa")
+    try:
+        rodar()
+    except:
+        print('deu erro')
+    
